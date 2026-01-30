@@ -14,7 +14,7 @@ If you discover a security vulnerability in the Truth Poll smart contracts, plea
 
 ### Option 2: Direct Contact
 
-Email: security@truthpoll.com
+Email: daniel@truthpoll.com
 
 Include:
 - Description of the vulnerability
@@ -99,6 +99,6 @@ Before deploying to mainnet:
 
 ## Contact
 
-- **Security Issues**: security@truthpoll.com
+- **Security Issues**: daniel@truthpoll.com
 - **General Questions**: GitHub Discussions
 - **Updates**: Follow releases for security patches
