@@ -542,8 +542,9 @@ contract Poll is ReentrancyGuard, Pausable {
             bool ended
         )
     {
-        voteCounts_ = new uint256[](choices.length);
-        for (uint256 i = 0; i < choices.length; i++) {
+        uint256 choicesLen = choices.length;
+        voteCounts_ = new uint256[](choicesLen);
+        for (uint256 i = 0; i < choicesLen; ++i) {
             voteCounts_[i] = voteCounts[i];
         }
         totalVotes_ = totalVotes;
@@ -560,9 +561,11 @@ contract Poll is ReentrancyGuard, Pausable {
         view
         returns (uint256[] memory winningChoiceIds, uint256 winningVotes)
     {
+        uint256 choicesLen = choices.length;
+
         // First pass: find max vote count
         uint256 maxVoteCount = 0;
-        for (uint256 i = 0; i < choices.length; i++) {
+        for (uint256 i = 0; i < choicesLen; ++i) {
             if (voteCounts[i] > maxVoteCount) {
                 maxVoteCount = voteCounts[i];
             }
@@ -570,19 +573,19 @@ contract Poll is ReentrancyGuard, Pausable {
 
         // Second pass: count how many choices have max votes
         uint256 winnerCount = 0;
-        for (uint256 i = 0; i < choices.length; i++) {
+        for (uint256 i = 0; i < choicesLen; ++i) {
             if (voteCounts[i] == maxVoteCount) {
-                winnerCount++;
+                ++winnerCount;
             }
         }
 
         // Third pass: collect winner IDs
         winningChoiceIds = new uint256[](winnerCount);
         uint256 index = 0;
-        for (uint256 i = 0; i < choices.length; i++) {
+        for (uint256 i = 0; i < choicesLen; ++i) {
             if (voteCounts[i] == maxVoteCount) {
                 winningChoiceIds[index] = i;
-                index++;
+                ++index;
             }
         }
 
@@ -602,8 +605,9 @@ contract Poll is ReentrancyGuard, Pausable {
     {
         uint256 maxVoteCount = 0;
         uint256 winningChoice = 0;
+        uint256 choicesLen = choices.length;
 
-        for (uint256 i = 0; i < choices.length; i++) {
+        for (uint256 i = 0; i < choicesLen; ++i) {
             if (voteCounts[i] > maxVoteCount) {
                 maxVoteCount = voteCounts[i];
                 winningChoice = i;

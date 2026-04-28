@@ -76,6 +76,11 @@ contract PollFactory is ReentrancyGuard, Pausable, Ownable2Step, Timelocked {
     /// @notice Maximum votes per poll (sanity cap)
     uint256 public constant MAX_VOTES_CAP = 1_000_000;
 
+    /// @notice Maximum reward per vote: 1000 USDC (matches frontend MAX_REWARD_PER_VOTE).
+    ///         Prevents creator footguns like typing 1e18 (1T USDC) instead of 1e6 (1 USDC)
+    ///         which would otherwise lock up the creator's USDC balance for the poll duration.
+    uint256 public constant MAX_REWARD_PER_VOTE = 1000e6;
+
     /// @notice Maximum polls per batch refund (gas limit protection)
     uint256 public constant MAX_BATCH_SIZE = 200;
 
@@ -113,6 +118,9 @@ contract PollFactory is ReentrancyGuard, Pausable, Ownable2Step, Timelocked {
 
     /// @notice Thrown when signature is invalid or signer is zero address
     error InvalidSignature();
+
+    /// @notice Thrown when renounceOwnership is called (intentionally disabled)
+    error RenounceDisabled();
 
     /**
      * @notice Initialize factory contract
@@ -227,6 +235,7 @@ contract PollFactory is ReentrancyGuard, Pausable, Ownable2Step, Timelocked {
         if (bytes(question).length == 0) revert InvalidPollParameters();
         if (choices.length < 2 || choices.length > 5) revert InvalidPollParameters();
         if (maxVotes == 0 || maxVotes > MAX_VOTES_CAP) revert InvalidPollParameters();
+        if (rewardPerVote > MAX_REWARD_PER_VOTE) revert InvalidPollParameters();
 
         // Calculate fixed endTime (30 days from now)
         uint256 endTime = block.timestamp + POLL_DURATION;
@@ -452,6 +461,17 @@ contract PollFactory is ReentrancyGuard, Pausable, Ownable2Step, Timelocked {
                 emit BatchRefundProcessed(pollAddr, false);
             }
         }
+    }
+
+    /**
+     * @notice Renouncing ownership is permanently disabled
+     * @dev Renounce would brick every timelocked admin path (treasury / refunder /
+     *      relayer / attester rotation) AND disable pause/unpause forever, with no
+     *      recovery. Override forces a revert so neither operator error nor a
+     *      compromised owner key can permanently disable admin functions.
+     */
+    function renounceOwnership() public override {
+        revert RenounceDisabled();
     }
 
     /**
