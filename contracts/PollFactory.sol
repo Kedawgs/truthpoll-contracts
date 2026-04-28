@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "./Poll.sol";
@@ -17,7 +17,7 @@ import "./base/Timelocked.sol";
  * @dev Uses CREATE2 for deterministic addresses and gas efficiency
  * @custom:security-contact security@truthpoll.com
  */
-contract PollFactory is ReentrancyGuard, Pausable, Ownable, Timelocked {
+contract PollFactory is ReentrancyGuard, Pausable, Ownable2Step, Timelocked {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
@@ -72,6 +72,9 @@ contract PollFactory is ReentrancyGuard, Pausable, Ownable, Timelocked {
     uint256 public constant TIER2_FEE = 0.05e6; // 0.05 USDC per vote
     uint256 public constant TIER3_FEE = 0.02e6; // 0.02 USDC per vote
     uint256 public constant TIER4_FEE = 0.01e6; // 0.01 USDC per vote
+
+    /// @notice Maximum votes per poll (sanity cap)
+    uint256 public constant MAX_VOTES_CAP = 1_000_000;
 
     /// @notice Maximum polls per batch refund (gas limit protection)
     uint256 public constant MAX_BATCH_SIZE = 200;
@@ -133,6 +136,7 @@ contract PollFactory is ReentrancyGuard, Pausable, Ownable, Timelocked {
         veriffAttester = _veriffAttester;
         treasury = _treasury;
         trustedRelayer = _trustedRelayer;
+        refunder = _trustedRelayer;
 
         // Compute EIP-712 domain separator
         DOMAIN_SEPARATOR = keccak256(
@@ -189,7 +193,7 @@ contract PollFactory is ReentrancyGuard, Pausable, Ownable, Timelocked {
      * @dev All polls have a fixed 30-day duration (POLL_DURATION)
      * @param creator Address of the poll creator (not msg.sender/relayer)
      * @param question Poll question
-     * @param choices Array of poll choices (2-10 choices)
+     * @param choices Array of poll choices (2-5 choices)
      * @param maxVotes Maximum number of votes
      * @param rewardPerVote USDC reward per vote (6 decimals, can be 0)
      * @param deadline Signature expiration timestamp
@@ -221,8 +225,8 @@ contract PollFactory is ReentrancyGuard, Pausable, Ownable, Timelocked {
 
         // Validate parameters
         if (bytes(question).length == 0) revert InvalidPollParameters();
-        if (choices.length < 2 || choices.length > 10) revert InvalidPollParameters();
-        if (maxVotes == 0) revert InvalidPollParameters();
+        if (choices.length < 2 || choices.length > 5) revert InvalidPollParameters();
+        if (maxVotes == 0 || maxVotes > MAX_VOTES_CAP) revert InvalidPollParameters();
 
         // Calculate fixed endTime (30 days from now)
         uint256 endTime = block.timestamp + POLL_DURATION;
@@ -470,6 +474,7 @@ contract PollFactory is ReentrancyGuard, Pausable, Ownable, Timelocked {
      * @param pollAddress Address of poll to pause
      */
     function pausePoll(address pollAddress) external onlyOwner {
+        require(isFactoryPoll[pollAddress], "Not a factory poll");
         Poll(pollAddress).pause();
     }
 
@@ -478,6 +483,7 @@ contract PollFactory is ReentrancyGuard, Pausable, Ownable, Timelocked {
      * @param pollAddress Address of poll to unpause
      */
     function unpausePoll(address pollAddress) external onlyOwner {
+        require(isFactoryPoll[pollAddress], "Not a factory poll");
         Poll(pollAddress).unpause();
     }
 }

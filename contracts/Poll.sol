@@ -184,7 +184,7 @@ contract Poll is ReentrancyGuard, Pausable {
         require(_creator != address(0), "Invalid creator");
         require(bytes(_question).length > 0, "Empty question");
         require(_choices.length >= 2, "Min 2 choices");
-        require(_choices.length <= 10, "Max 10 choices");
+        require(_choices.length <= 5, "Max 5 choices");
         require(_maxVotes > 0, "Max votes must be > 0");
         require(_endTime > block.timestamp, "End time must be future");
         require(_usdc != address(0), "Invalid USDC address");
@@ -387,9 +387,11 @@ contract Poll is ReentrancyGuard, Pausable {
      */
     function endPollEarly() external nonReentrant {
         if (msg.sender != creator) revert OnlyCreator();
+        if (block.timestamp >= endTime) revert PollEnded();
         if (endedEarly) revert PollEnded();
 
         endedEarly = true;
+        rewardsClaimed = true;
 
         // Calculate refund: unused rewards only
         uint256 unusedVotes = maxVotes - totalVotes;
@@ -454,10 +456,12 @@ contract Poll is ReentrancyGuard, Pausable {
         creatorNonces[creatorAddr]++;
 
         // Check poll state
+        if (block.timestamp >= endTime) revert PollEnded();
         if (endedEarly) revert PollEnded();
 
         // Effects - Update state before external calls
         endedEarly = true;
+        rewardsClaimed = true;
 
         // Calculate refund: unused rewards only
         uint256 unusedVotes = maxVotes - totalVotes;
